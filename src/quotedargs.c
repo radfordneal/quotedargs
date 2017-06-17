@@ -59,6 +59,14 @@
 #define NOTQUOTED_MASK  0x2000
 
 
+/* INSTALLED SYMBOLS NEEDED HERE.  Initialized in R_init_quotedargs. */
+
+static SEXP dotdotdot_symbol;
+static SEXP notquoted_symbol;
+static SEXP arg_symbol;
+static SEXP expr_symbol;
+
+
 /* ENSURE THAT AN EXPRESSION IS NOT BYTE CODE.  Based on the bytecodeExpr 
    function in eval.c in the R interpreter. */
 
@@ -101,7 +109,7 @@ static int notquoted_call (SEXP expr)
 {
     return TYPEOF(expr) == LANGSXP 
              && CDR(expr) != R_NilValue && CDDR(expr) == R_NilValue /* 1 arg */
-             && CAR(expr) == install("notquoted");
+             && CAR(expr) == notquoted_symbol;
 }
 
 
@@ -135,7 +143,7 @@ SEXP quoted_arg (SEXP env, SEXP cenv)
 
     /* Get the pairlist of arguments from ... in the quoted_arg function. */
 
-    SEXP dots = findVarInFrame(env,install("..."));
+    SEXP dots = findVarInFrame (env, dotdotdot_symbol);
     if (dots == R_NilValue)
         return R_NilValue;
     if (TYPEOF(dots) != DOTSXP)
@@ -248,7 +256,7 @@ SEXP quoted_environment (SEXP env, SEXP cenv)
 
     /* Get the argument of the quoted_environment function. */
 
-    SEXP arg = findVarInFrame (env, install("arg"));
+    SEXP arg = findVarInFrame (env, arg_symbol);
     if (arg == R_UnboundValue) {
         error("something wrong in quoted_environment");
     }
@@ -285,7 +293,7 @@ SEXP quoted_eval (SEXP env, SEXP cenv)
 
     /* Get the argument of the quoted_eval function. */
 
-    SEXP arg = findVarInFrame (env, install("arg"));
+    SEXP arg = findVarInFrame (env, arg_symbol);
     if (arg == R_UnboundValue) {
         error("something wrong in quoted_eval");
     }
@@ -346,7 +354,7 @@ SEXP quoted_assign (SEXP env, SEXP cenv, SEXP name, SEXP evalenv,
        but if it's not (maybe a promise was avoided as an optimization
        if it's self-evaluating) just take it as is. */
 
-    SEXP expr = findVarInFrame (env, install("expr"));
+    SEXP expr = findVarInFrame (env, expr_symbol);
     if (expr == R_UnboundValue) {
         error("something wrong in quoted_assign");
     }
@@ -423,4 +431,9 @@ void R_init_quotedargs (DllInfo *info)
 
     R_registerRoutines (info, NULL, call_methods, NULL, NULL);
     R_useDynamicSymbols (info, FALSE);
+
+    dotdotdot_symbol = install ("...");
+    notquoted_symbol = install ("notquoted");
+    arg_symbol       = install ("arg");
+    expr_symbol      = install ("expr");
 }

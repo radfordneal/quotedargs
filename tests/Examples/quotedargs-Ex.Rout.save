@@ -149,12 +149,37 @@ a
 
 > 
 > 
+> # Example of using quoted_arg and quoted_eval to avoid copying
+> # of a large object.
+> 
+> sum_first_last1 <- function (v) {
++     v[1] + v[length(v)]
++ }
+> 
+> sum_first_last2 <- function (v) {
++     quoted_arg(v)
++     quoted_eval(v)[1] + quoted_eval(v)[length(quoted_eval(v))]
++ }
+> 
+> f <- function (sumfl) {
++     x <- 1:100000
++     r <- sumfl(x)
++     x[2] <- 0L
++     r
++ }
+> 
+> f(sum_first_last1)   # x[2] <- 0L first copies x (in current R implementations)
+[1] 100001
+> f(sum_first_last2)   # x[2] <- 0L does not result in x being copied
+[1] 100001
+> 
+> 
 > 
 > ### * <FOOTER>
 > ###
 > options(digits = 7L)
 > base::cat("Time elapsed: ", proc.time() - base::get("ptime", pos = 'CheckExEnv'),"\n")
-Time elapsed:  0.084 0.004 0.088 0 0 
+Time elapsed:  0.07 0.004 0.072 0 0 
 > grDevices::dev.off()
 null device 
           1 

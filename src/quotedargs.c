@@ -405,3 +405,22 @@ SEXP quoted_assign (SEXP env, SEXP cenv, SEXP name, SEXP evalenv,
 
     return R_NilValue;
 }
+
+
+/* REGISTER ROUTINES WHEN DLL LOADED. */
+
+#include <R_ext/Rdynload.h>
+
+void R_init_quotedargs (DllInfo *info)
+{
+    static const R_CallMethodDef call_methods[] = {
+        { "C_quoted_arg",         (DL_FUNC) &quoted_arg, 2 },
+        { "C_quoted_environment", (DL_FUNC) &quoted_environment, 2 },
+        { "C_quoted_eval",        (DL_FUNC) &quoted_eval, 2 },
+        { "C_quoted_assign",      (DL_FUNC) &quoted_assign, 5 },
+        { NULL, NULL, 0 }
+    };
+
+    R_registerRoutines (info, NULL, call_methods, NULL, NULL);
+    R_useDynamicSymbols (info, FALSE);
+}

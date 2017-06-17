@@ -1,2 +1,2 @@
-useDynLib(quotedargs)
-exportPattern("^[[:alpha:]]+")
+useDynLib (quotedargs, .registration = TRUE)
+export (quoted_arg, quoted_environment, quoted_eval, quoted_assign, notquoted)

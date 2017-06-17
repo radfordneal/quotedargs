@@ -270,7 +270,54 @@ SEXP quoted_environment (SEXP env, SEXP cenv)
 
     /* Return the environment for a quoted argument, or R NULL otherwise. */
 
-    return (LEVELS(prom) & QUOTED_MASK) != 0 ? PRENV(prom) : R_NilValue;
+    return LEVELS(prom) & QUOTED_MASK ? PRENV(prom) : R_NilValue;
+}
+
+
+/* C ROUTINE FOR QUOTED_EVAL.  Passed the environment of the R quoted_eval 
+   function as 'env', and the environment of the caller of quoted_eval
+   as 'cenv'. */
+
+SEXP quoted_eval (SEXP env, SEXP cenv)
+{
+    if (TYPEOF(env) != ENVSXP || TYPEOF(cenv) != ENVSXP)
+        error ("something wrong in quoted_evalt");
+
+    /* Get the argument of the quoted_eval function. */
+
+    SEXP arg = findVarInFrame (env, install("arg"));
+    if (arg == R_UnboundValue) {
+        error("something wrong in quoted_eval");
+    }
+
+    /* Check that the argument is a symbol (or bytecode for a symbol). */
+
+    SEXP sym;
+    if (!arg_is_symbol(arg,&sym)) {
+        error("argument of quoted_eval is not a symbol");
+    }
+
+    /* Look up the symbol in the caller of quoted_eval. */
+
+    SEXP prom = look_upwards (sym, cenv);
+    if (prom == R_NilValue) {
+        error ("argument of quoted_eval is not from "
+               "quoted_args or quoted_assign");
+    }
+
+    if (LEVELS(prom) & NOTQUOTED_MASK) {
+
+        /* Return the value stored in the promise of a nonquoted argument. */
+
+        return PRVALUE(prom);
+    }
+    else {
+
+        /* Return the result of evaluating the quoted expression in its
+           environment. */
+
+        return eval (PRCODE(prom), PRENV(prom));
+    }
 }
 
 

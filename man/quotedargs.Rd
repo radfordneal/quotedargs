@@ -184,4 +184,28 @@ qfun2 <- function (y) {
 }
 
 qfun2(1+2)
+
+
+# Example of using quoted_arg and quoted_eval to avoid copying
+# of a large object.
+
+sum_first_last1 <- function (v) v[1] + v[length(v)]
+
+sum_first_last2 <- function (v) {
+    quoted_arg(v)
+    quoted_eval(v)[1] + quoted_eval(v)[length(quoted_eval(v))]
+}
+
+f <- function (sumf) {
+    Rprofmem()
+    x <- 1:100000
+    r <- sumf(x)
+    x[2] <- 0L
+    Rprofmem(NULL)
+    r
+}
+
+f(sum_first_last1)   # x[2] <- 0L first copies x (in current R implementations)
+f(sum_first_last2)   # x[2] <- 0L does not result in x being copied
+
 }

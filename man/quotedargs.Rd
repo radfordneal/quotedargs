@@ -25,10 +25,14 @@ reference to an argument \code{x} from the value of the actual
 argument, with the expression passed for \code{x} accessible via
 \code{substitute(x)}, so that instead the default is the expression
 passed for \code{x}, with the value accessible via
-\code{quoted_eval(x)}, as described below.  But in more complex
-applications, the facilities provided by this package are more than
-just a convenient change of defaults, as they allow functions that
-quote arguments to be combined in ways that would otherwise be difficult.
+\code{quoted_eval(x)}, as described below.  
+
+However, in more complex applications, the facilities provided by this
+package are more than just a convenient change of defaults, as they
+allow functions that quote arguments to be combined in ways that would
+otherwise be difficult.  They also allow variables to be passed as
+arguments ``by reference'', with the contents of the variable being
+altered by the function.
 }
 \usage{
 quoted_arg (...)
@@ -37,7 +41,7 @@ quoted_environment (arg)
 notquoted (x)
 
 quoted_assign (name, expr, eval.env, assign.env)
-quoted_eval(name) <- expr
+quoted_eval(name) <- value
 }
 \arguments{
 \item{...}{names (unquoted) of function arguments that should be quoted}
@@ -111,11 +115,13 @@ argument, \code{expr} is immediately evaluated in the current
 environment, and what is stored in \code{name} will look like a quoted
 argument in which the actual argument used \code{notquoted}.
 
-The expression \code{quoted_eval(name)<-expr} is equivalent to
-\code{quoted_assign(name,expr,NULL)}, except that \code{name} must be
-a quoted argument in which the actual argument was not a call of
-\code{notquoted} (or a variable with these characteristics set up
-with \code{quoted_assign}).
+The expression \code{quoted_eval(name)<-value} is equivalent to
+\code{quoted_assign(name,value,NULL)}, except that it returns \code{value}
+rather than \code{NULL}.  Also, \code{name} must currently be
+a quoted argument in which the actual argument was a symbol (or a
+variable with these characteristics set up with \code{quoted_assign}).
+This allows a variable passed as a quoted argument to by modified,
+as illustrated in the last example below.
 }
 \value{
     \code{quoted_eval} and \code{quoted_environment} return values
@@ -203,8 +209,8 @@ qfun2 <- function (y) {
 qfun2(1+2)
 
 
-# Examples of using quoted_arg and quoted_eval to avoid copying
-# of a large object.
+# Example of how quoted_arg and quoted_eval can be used to avoid
+# copying of a large object.
 
 sum_first_last1 <- function (v) {
     v[1] + v[length(v)]
@@ -225,11 +231,15 @@ f <- function (sumfl) {
 f(sum_first_last1)   # x[2] <- 0L first copies x (in current R implementations)
 f(sum_first_last2)   # x[2] <- 0L does not result in x being copied
 
+
+# Example using quoted_eval to achieve the effect of passing an
+# argument "by reference".
+\dontrun{
 zero_first_last <- function (v) {
     quoted_arg(v)
     quoted_eval(v)[1] <- 0
-    quoted_eval(v)[length(quoted_eval(v)] <- 0
-    NULL
+    quoted_eval(v)[length(quoted_eval(v))] <- 0
+    invisible()
 }
 
 v <- rep(2,10000)
@@ -238,4 +248,5 @@ zero_first_last(v)   # does not result in v being copied
 cat (v[1:3], "...", v[9998:10000], "\n")
 
 v[2] <- 2            # does not result in v being copied
+}
 }

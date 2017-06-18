@@ -65,7 +65,6 @@ static SEXP dotdotdot_symbol;  /* ...         */
 static SEXP notquoted_symbol;  /* notquoted   */
 static SEXP arg_symbol;        /* arg         */
 static SEXP name_symbol;       /* name        */
-static SEXP expr_symbol;       /* expr        */
 static SEXP value_symbol;      /* value       */
 static SEXP evalenv_symbol;    /* eval.env    */
 static SEXP assignenv_symbol;  /* assign.env  */
@@ -118,7 +117,7 @@ static int notquoted_call (SEXP expr)
 
 
 /* CHECK IF ARGUMENT IS A QUOTED OR NOTQUOTED ARGUMENT.  Looks in the
-   given environment for the argumet's promise to figure this out.
+   given environment for the argument's promise to figure this out.
    Returns R_NilValue if not a quoted argument, and otherwise the old
    promise. */
 
@@ -336,13 +335,15 @@ SEXP quoted_eval (SEXP env, SEXP cenv)
 /* C ROUTINE FOR QUOTED_ASSIGN.  Passed the environment of the R
    quoted_assign function as 'env', the environment of the caller of
    quoted_assign as 'cenv', and indicators of whether the 'eval.env'
-   and 'assign.env' arguments are missign.  The 'name', 'expr',
+   and 'assign.env' arguments are missing.  The 'name', 'value',
    'eval.env', and 'assign.env' arguments are obtained when necessary
    from 'env'. */
 
 SEXP quoted_assign (SEXP env, SEXP cenv, SEXP evalenv_missing, 
                                          SEXP assignenv_missing)
 {
+    SEXP sym;
+
     if (TYPEOF(env) != ENVSXP || TYPEOF(cenv) != ENVSXP)
         error ("something wrong in quoted_assign");
 
@@ -360,77 +361,75 @@ SEXP quoted_assign (SEXP env, SEXP cenv, SEXP evalenv_missing,
     if (TYPEOF(assignenv) != ENVSXP)
         error ("'assign.env' argument must be an environment");
 
-    /* Get the 'name' argument of the quoted_assign function. */
+    /* Get the 'name' argument of the quoted_assign function.  It is 
+       evaluated, except that there is a check for it being a quoted 
+       argument, in which case the default for assignenv is changed. */
 
     SEXP name = findVarInFrame (env, name_symbol);
     if (name == R_UnboundValue)
         error("something wrong in quoted_assign");
 
-    if (TYPEOF(name) == PROMSXP)
-        name = PRCODE(name);
+    SEXP nprom = R_NilValue;
 
-    name = not_byte_code(name);
+    if (arg_is_symbol (name, &sym)) {
+        nprom = look_upwards (sym, cenv);
+        if (nprom != R_NilValue) {
+            if ((LEVELS(nprom) & QUOTED_MASK) == 0)
+                error("can't assign to quoted argument when actual argument "
+                      "is notquoted");
+            if (TYPEOF(PRVALUE(nprom)) != SYMSXP)
+                error("can't assign to quoted argument when actual argument "
+                      "is not a symbol");
+            name = PRVALUE(nprom);
+            if (missing_assignenv) 
+                assignenv = PRENV(nprom);
+        }
+    }
 
-    if (TYPEOF(name) == STRSXP && LENGTH(name) == 1)
-        name = install (CHAR(STRING_ELT(name,0)));
+    if (nprom == R_NilValue) {
+        name = eval (name, cenv);
+        if (TYPEOF(name) == STRSXP && LENGTH(name) == 1)
+            name = install (CHAR(STRING_ELT(name,0)));
+    }
 
     if (TYPEOF(name) != SYMSXP)
         error ("'name' argument must be a symbol or single character string");
 
-    /* Get the 'expr' argument of the quoted_assign function.  It
-       will usually be a promise, from which we take the expression,
-       but if it's not (maybe a promise was avoided as an optimization
-       if it's self-evaluating) just take it as is. */
+    /* Get the 'value' argument of the quoted_assign function.  It is 
+       evaluated, except that there is a check for it being a quoted 
+       argument, in which case the default for evalenv is changed. */
 
-    SEXP expr = findVarInFrame (env, expr_symbol);
-    if (expr == R_UnboundValue) {
+    SEXP value = findVarInFrame (env, value_symbol);
+    if (value == R_UnboundValue)
         error("something wrong in quoted_assign");
+
+    SEXP vprom = R_NilValue;
+    SEXP code;
+
+    if (arg_is_symbol (name, &sym)) {
+        vprom = look_upwards (sym, cenv);
+        if (vprom != R_NilValue) {
+            value = PRVALUE(vprom);
+            code = PRCODE(vprom);
+            if (missing_evalenv) 
+                evalenv = PRENV(vprom);
+        }
     }
 
-    SEXP expr_nbc = expr;  /* version avoiding byte code, if in promise */
-
-    if (TYPEOF(expr) == PROMSXP) {
-        expr = PRCODE(expr);
-        expr_nbc = not_byte_code(expr);
+    if (vprom == R_NilValue) {
+        value = eval (value, cenv);
+        code = value;
     }
 
-    /* Create the promise that will be assigned. */
+    /* Create and assign the promise. */
 
     SEXP prom;
     PROTECT (prom = allocSExp (PROMSXP));
 
-    SEXP old_prom = look_upwards (expr_nbc, cenv);
-
-    if (old_prom != R_NilValue) {
-
-        /* Copy promise for previously-quoted/notquoted arg to new promise. */
-
-        SET_PRENV (prom, PRENV(old_prom));
-        SET_PRCODE (prom, PRCODE(old_prom));
-        SET_PRVALUE (prom, PRVALUE(old_prom));
-        SETLEVELS (prom, LEVELS(prom) | (LEVELS(old_prom) 
-                                          & (QUOTED_MASK | NOTQUOTED_MASK)));
-    }
-    else if (evalenv == NULL || notquoted_call(expr_nbc)) {
-
-        /* Make the promise look like a notquoted argument. */
-
-        SET_PRENV (prom, R_NilValue);
-        SET_PRCODE (prom, expr);
-        SET_PRVALUE (prom, eval (expr, evalenv==NULL ? cenv : evalenv));
-        SETLEVELS (prom, NOTQUOTED_MASK);
-    }
-    else {
-
-        /* Make the promise look like a quoted argument. */
-
-        SET_PRENV (prom, evalenv);
-        SET_PRCODE (prom, expr);
-        SET_PRVALUE (prom, expr);
-        SETLEVELS (prom, QUOTED_MASK);
-    }
-
-    /* Assign the promise created above. */
+    SET_PRENV (prom, evalenv);
+    SET_PRCODE (prom, code);
+    SET_PRVALUE (prom, value);
+    SETLEVELS (prom, evalenv == R_NilValue ? NOTQUOTED_MASK : QUOTED_MASK);
 
     defineVar (name, prom, assignenv);
     SET_NAMED (prom, 1);
@@ -449,6 +448,33 @@ SEXP quoted_assign (SEXP env, SEXP cenv, SEXP evalenv_missing,
 
 SEXP quoted_eval_assign (SEXP env, SEXP cenv, SEXP value)
 {
+    SEXP sym;
+
+    if (TYPEOF(env) != ENVSXP || TYPEOF(cenv) != ENVSXP)
+        error ("something wrong in quoted_eval<-");
+
+    /* Get the 'name' argument and check that it is a symbol. */
+
+    SEXP name = findVarInFrame (env, name_symbol);
+    if (name == R_UnboundValue)
+        error("something wrong in quoted_eval<-");
+
+    SEXP sym;
+    if (!arg_is_symbol(name,&sym)) {
+        error("argument of quoted_eval is not a symbol");
+    }
+
+    /* Look up the symbol in the caller of quoted_eval. */
+
+    SEXP prom = look_upwards (sym, cenv);
+    if (prom == R_NilValue) {
+        error ("argument of quoted_eval is not from "
+               "quoted_args or quoted_assign");
+    }
+
+    if (LEVELS(prom) & NOTQUOTED_MASK)
+        error ("attempt to assign to a notquoted argument");
+
     return value;
 }
 
@@ -475,7 +501,6 @@ void R_init_quotedargs (DllInfo *info)
     notquoted_symbol = install ("notquoted");
     arg_symbol       = install ("arg");
     name_symbol      = install ("name");
-    expr_symbol      = install ("expr");
     value_symbol     = install ("value");
     evalenv_symbol   = install ("eval.env");
     assignenv_symbol = install ("assing.env");

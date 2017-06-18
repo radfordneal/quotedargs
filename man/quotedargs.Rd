@@ -40,7 +40,7 @@ quoted_eval (arg)
 quoted_environment (arg)
 notquoted (x)
 
-quoted_assign (name, expr, eval.env, assign.env)
+quoted_assign (name, value, eval.env, assign.env)
 quoted_eval(name) <- value
 }
 \arguments{
@@ -50,8 +50,8 @@ quoted_eval(name) <- value
 
 \item{name}{the name (as a character string or symbol) of a variable to 
             assign to}
-\item{expr}{an expression to assign to the variable \code{name}}
-\item{eval.env}{the environment in which \code{expr} may be evaluated;
+\item{value}{a value to assign to the variable \code{name}}
+\item{eval.env}{the environment in which \code{value} may be evaluated;
                 may be missing, with defaults as described below}
 \item{assign.env}{the environment in which to assign to \code{name};
                   may be missing, with defaults as described below}
@@ -100,28 +100,28 @@ is a quoted argument, in which case \code{assign.env} defaults to
 \code{quoted_environment(name)}. (It is an error if this is
 \code{NULL}.)
 
-The \code{expr} argument to \code{quoted_assign} gives an expression
-analogous to an actual argument, which is stored in the variable
-specified by \code{name}.  The environment \code{eval.env} is stored
-with the assigned expression (in a ``promise''), and will be used when
-evaluating this expression if \code{quoted_eval} is called for the
-assigned variable.  If \code{eval.env} is missing, it defaults to the
-current environment, unless \code{expr} is itself a quoted argument,
-in which case the default is \code{quoted_environment(expr)}.
-
-Finally, if the \code{eval.env} argument of \code{quoted_assign} is
-\code{NULL}, or \code{expr} is a call of \code{notquoted} with one
-argument, \code{expr} is immediately evaluated in the current
-environment, and what is stored in \code{name} will look like a quoted
-argument in which the actual argument used \code{notquoted}.
+The \code{value} argument to \code{quoted_assign} is evaluated to
+obtain an expression analogous to an actual argument, which is stored
+in the variable specified by \code{name}.  The environment
+\code{eval.env} is stored with the assigned expression (in a
+``promise''), and will be used when evaluating this expression if
+\code{quoted_eval} is called for the assigned variable.  If
+\code{eval.env} is missing, it defaults to the current environment,
+unless \code{value} is itself a quoted argument, in which case the
+default is \code{quoted_environment(value)}.  If the \code{eval.env}
+argument of \code{quoted_assign} is \code{NULL}, what is stored in
+\code{name} will look like a quoted argument in which the actual
+argument used \code{notquoted}.
 
 The expression \code{quoted_eval(name)<-value} is equivalent to
-\code{quoted_assign(name,value,NULL)}, except that it returns \code{value}
-rather than \code{NULL}.  Also, \code{name} must currently be
-a quoted argument in which the actual argument was a symbol (or a
-variable with these characteristics set up with \code{quoted_assign}).
-This allows a variable passed as a quoted argument to by modified,
-as illustrated in the last example below.
+\code{quoted_assign(name,value,NULL)}, except that it returns
+\code{value} rather than \code{NULL}.  This allows a variable passed
+as a quoted argument to by modified, as illustrated in the last
+example below.  Currently, \code{name} must be a quoted argument
+in which the actual argument was a symbol (or a variable with these
+characteristics set up with \code{quoted_assign}).  Also, subset
+assignments such as \code{quoted_eval(v)[i]<-0} do not work at
+present.
 }
 \value{
     \code{quoted_eval} and \code{quoted_environment} return values
@@ -187,7 +187,7 @@ prsim (rexp(10,0.1), rnorm(10,1), 1000)
 
 # Creating a variable that behaves like a quoted argument.
 
-quoted_assign("x",runif(1))
+quoted_assign("x",quote(runif(1)))
 
 set.seed(1)
 cat (paste0("Two evaluations of ",deparse(x),": "),
@@ -233,20 +233,18 @@ f(sum_first_last2)   # x[2] <- 0L does not result in x being copied
 
 
 # Example using quoted_eval to achieve the effect of passing an
-# argument "by reference".
-\dontrun{
-zero_first_last <- function (v) {
-    quoted_arg(v)
-    quoted_eval(v)[1] <- 0
-    quoted_eval(v)[length(quoted_eval(v))] <- 0
-    invisible()
+# argument "by reference".  But note that currently things like
+# quoted_eval(x)[1] <- 0 will not work.
+
+zero_one_or_other <- function (x,y,b) {
+    quoted_arg(x,y)
+    if (b) 
+        quoted_eval(x) <- 0
+    else
+        quoted_eval(y) <- 0
 }
 
-v <- rep(2,10000)
-zero_first_last(v)   # does not result in v being copied
-
-cat (v[1:3], "...", v[9998:10000], "\n")
-
-v[2] <- 2            # does not result in v being copied
-}
+a <- 2; b <- 3
+zero_one_or_other (a, b, a>b)
+print(c(a,b))
 }

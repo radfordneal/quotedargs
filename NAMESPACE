@@ -1,2 +1,7 @@
 useDynLib (quotedargs, .registration = TRUE)
-export (quoted_arg, quoted_environment, quoted_eval, quoted_assign, notquoted)
+export (quoted_arg, 
+        quoted_environment, 
+        quoted_eval, 
+        quoted_assign, 
+        "quoted_eval<-",
+        notquoted)

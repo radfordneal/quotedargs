@@ -20,7 +20,7 @@ quoted_eval <- function (arg)
     .Call (C_quoted_eval, environment(), parent.frame(), 
            PACKAGE="quotedargs")
 
-quoted_assign <- function (name, expr, eval.env, assign.env)
+quoted_assign <- function (name, value, eval.env, assign.env)
     .Call (C_quoted_assign, environment(), parent.frame(), 
            missing(eval.env), missing(assign.env),
            PACKAGE="quotedargs")

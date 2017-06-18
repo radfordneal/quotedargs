@@ -29,9 +29,7 @@ passed for \code{x}, with the value accessible via
 However, in more complex applications, the facilities provided by this
 package are more than just a convenient change of defaults, as they
 allow functions that quote arguments to be combined in ways that would
-otherwise be difficult.  They also allow variables to be passed as
-arguments ``by reference'', with the contents of the variable being
-altered by the function.
+otherwise be difficult.
 }
 \usage{
 quoted_arg (...)
@@ -146,12 +144,12 @@ showmeansummary <- function (u) {
     showmean(u)
 }
 
-showmeansummary(100+(1:3))            # Will print 100 + (1:3)
+showmeansummary(100+(1:3))            # Will print 100 + (1:3), not u!
 showmeansummary(notquoted(100+(1:3))) # Will print c(101, 102, 103)
 
 u <- v <- 100+(1:3)   # Evaluation of showmeansummary's argument
-showmeansummary(u)    #   is done in the global environment, not
-showmeansummary(v)    #   that of showmeansummary or showmean
+showmeansummary(u)    #   is done in the environment of the caller,
+showmeansummary(v)    #   not that of showmeansummary or showmean
 
 
 # An illustration of quoted arguments being evaluated many times.
@@ -215,6 +213,6 @@ f <- function (sumfl) {
     r
 }
 
-f(sum_first_last1)   # x[2] <- 0L first copies x (in current R implementations)
-f(sum_first_last2)   # x[2] <- 0L does not result in x being copied
+f(sum_first_last1)  # x[2] <- 0L first copies x (in current R implementations)
+f(sum_first_last2)  # x[2] <- 0L does not result in x being copied
 }

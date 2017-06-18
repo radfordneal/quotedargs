@@ -9,7 +9,6 @@
 \alias{quoted_eval}
 \alias{quoted_environment}
 \alias{quoted_assign}
-\alias{quoted_eval<-}
 \title{Facility for using quoted arguments}
 \description{
 This package assists with writing functions that automatically quote
@@ -40,8 +39,7 @@ quoted_eval (arg)
 quoted_environment (arg)
 notquoted (x)
 
-quoted_assign (name, value, eval.env, assign.env)
-quoted_eval(name) <- value
+quoted_assign (name, value, eval.env, assign.env = parent.frame())
 }
 \arguments{
 \item{...}{names (unquoted) of function arguments that should be quoted}
@@ -52,9 +50,8 @@ quoted_eval(name) <- value
             assign to}
 \item{value}{a value to assign to the variable \code{name}}
 \item{eval.env}{the environment in which \code{value} may be evaluated;
-                may be missing, with defaults as described below}
-\item{assign.env}{the environment in which to assign to \code{name};
-                  may be missing, with defaults as described below}
+                may be missing, with default as described below}
+\item{assign.env}{the environment in which to assign to \code{name}}
 }
 \details{
 The \code{quoted_arg} function should be called at the start of a
@@ -94,11 +91,9 @@ using \code{quoted_assign}.
 The name of the variable to set is specified by the \code{name}
 argument of \code{quoted_assign}, which must evaluate to a single
 character string or a symbol.  The environment in which this variable
-is assigned is specified by the \code{assign.env} argument.  If this
-is omitted, it defaults to the current environment, unless \code{name}
-is a quoted argument, in which case \code{assign.env} defaults to
-\code{quoted_environment(name)}. (It is an error if this is
-\code{NULL}.)
+is assigned is specified by the \code{assign.env} argument,
+which defaults to the current environment (the parent frame of 
+\code{quoted_assign}).
 
 The \code{value} argument to \code{quoted_assign} is evaluated to
 obtain an expression analogous to an actual argument, which is stored
@@ -111,17 +106,9 @@ unless \code{value} is itself a quoted argument, in which case the
 default is \code{quoted_environment(value)}.  If the \code{eval.env}
 argument of \code{quoted_assign} is \code{NULL}, what is stored in
 \code{name} will look like a quoted argument in which the actual
-argument used \code{notquoted}.
-
-The expression \code{quoted_eval(name)<-value} is equivalent to
-\code{quoted_assign(name,value,NULL)}, except that it returns
-\code{value} rather than \code{NULL}.  This allows a variable passed
-as a quoted argument to by modified, as illustrated in the last
-example below.  Currently, \code{name} must be a quoted argument
-in which the actual argument was a symbol (or a variable with these
-characteristics set up with \code{quoted_assign}).  Also, subset
-assignments such as \code{quoted_eval(v)[i]<-0} do not work at
-present.
+argument used \code{notquoted}, and evaluated to \code{value}, with
+the expression stored in the promise being the unevaluated form of
+\code{value}.
 }
 \value{
     \code{quoted_eval} and \code{quoted_environment} return values
@@ -230,21 +217,4 @@ f <- function (sumfl) {
 
 f(sum_first_last1)   # x[2] <- 0L first copies x (in current R implementations)
 f(sum_first_last2)   # x[2] <- 0L does not result in x being copied
-
-
-# Example using quoted_eval to achieve the effect of passing an
-# argument "by reference".  But note that currently things like
-# quoted_eval(x)[1] <- 0 will not work.
-
-zero_one_or_other <- function (x,y,b) {
-    quoted_arg(x,y)
-    if (b) 
-        quoted_eval(x) <- 0
-    else
-        quoted_eval(y) <- 0
-}
-
-a <- 2; b <- 3
-zero_one_or_other (a, b, a>b)
-print(c(a,b))
 }

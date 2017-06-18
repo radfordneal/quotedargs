@@ -91,9 +91,9 @@ rexp(10, 0.1) are greater than all rnorm(10, 1)
 [1] 0.103
 > 
 > 
-> # Creating a variable looking that behaves like a quoted argument.
+> # Creating a variable that behaves like a quoted argument.
 > 
-> quoted_assign("x",runif(1))
+> quoted_assign("x",quote(runif(1)))
 NULL
 > 
 > set.seed(1)
@@ -149,8 +149,8 @@ a
 
 > 
 > 
-> # Example of using quoted_arg and quoted_eval to avoid copying
-> # of a large object.
+> # Example of how quoted_arg and quoted_eval can be used to avoid
+> # copying of a large object.
 > 
 > sum_first_last1 <- function (v) {
 +     v[1] + v[length(v)]
@@ -179,7 +179,7 @@ a
 > ###
 > options(digits = 7L)
 > base::cat("Time elapsed: ", proc.time() - base::get("ptime", pos = 'CheckExEnv'),"\n")
-Time elapsed:  0.07 0.004 0.072 0 0 
+Time elapsed:  0.069 0.004 0.073 0 0 
 > grDevices::dev.off()
 null device 
           1 

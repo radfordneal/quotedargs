@@ -67,7 +67,6 @@ static SEXP arg_symbol;        /* arg         */
 static SEXP name_symbol;       /* name        */
 static SEXP value_symbol;      /* value       */
 static SEXP evalenv_symbol;    /* eval.env    */
-static SEXP assignenv_symbol;  /* assign.env  */
 
 
 /* ENSURE THAT AN EXPRESSION IS NOT BYTE CODE.  Based on the bytecodeExpr 
@@ -333,67 +332,37 @@ SEXP quoted_eval (SEXP env, SEXP cenv)
 
 
 /* C ROUTINE FOR QUOTED_ASSIGN.  Passed the environment of the R
-   quoted_assign function as 'env', the environment of the caller of
-   quoted_assign as 'cenv', and indicators of whether the 'eval.env'
-   and 'assign.env' arguments are missing.  The 'name', 'value',
-   'eval.env', and 'assign.env' arguments are obtained when necessary
-   from 'env'. */
+   quoted_assign function as 'env', the environment of the caller 
+   of quoted_assign as 'cenv', the 'name' argument, an indicator of 
+   whether the 'eval.env' argument is missing, and the 'assign.env' 
+   argument.  The 'value' and 'eval.env' arguments are obtained as 
+   necessary from 'env'. */
 
-SEXP quoted_assign (SEXP env, SEXP cenv, SEXP evalenv_missing, 
-                                         SEXP assignenv_missing)
+SEXP quoted_assign (SEXP env, SEXP cenv, SEXP name, 
+                    SEXP evalenv_missing, SEXP assignenv)
 {
     SEXP sym;
 
     if (TYPEOF(env) != ENVSXP || TYPEOF(cenv) != ENVSXP)
         error ("something wrong in quoted_assign");
 
-    /* Get eval.env and assign.env arguments if not missing. */
+    /* Check that the 'name' argument is valid, and convert it to a
+       symbol if necessary. */
+
+    if (TYPEOF(name) == STRSXP && LENGTH(name) == 1) {
+        name = install (CHAR (STRING_ELT (name, 0)));
+    }
+    
+    if (TYPEOF(name) != SYMSXP)
+        error ("'name' argument must be a symbol or single character string");
+
+    /* Get eval.env, or set to 'cenv' if missing. */
 
     int missing_evalenv = asLogical(evalenv_missing);
     SEXP evalenv = missing_evalenv ? cenv : eval (evalenv_symbol, env);
 
     if (evalenv != R_NilValue && TYPEOF(evalenv) != ENVSXP)
         error ("'eval.env' argument must be an environment or NULL");
-
-    int missing_assignenv = asLogical(assignenv_missing);
-    SEXP assignenv = missing_assignenv ? cenv : eval (assignenv_symbol, env);
-
-    if (TYPEOF(assignenv) != ENVSXP)
-        error ("'assign.env' argument must be an environment");
-
-    /* Get the 'name' argument of the quoted_assign function.  It is 
-       evaluated, except that there is a check for it being a quoted 
-       argument, in which case the default for assignenv is changed. */
-
-    SEXP name = findVarInFrame (env, name_symbol);
-    if (name == R_UnboundValue)
-        error("something wrong in quoted_assign");
-
-    SEXP nprom = R_NilValue;
-
-    if (arg_is_symbol (name, &sym)) {
-        nprom = look_upwards (sym, cenv);
-        if (nprom != R_NilValue) {
-            if ((LEVELS(nprom) & QUOTED_MASK) == 0)
-                error("can't assign to quoted argument when actual argument "
-                      "is notquoted");
-            if (TYPEOF(PRVALUE(nprom)) != SYMSXP)
-                error("can't assign to quoted argument when actual argument "
-                      "is not a symbol");
-            name = PRVALUE(nprom);
-            if (missing_assignenv) 
-                assignenv = PRENV(nprom);
-        }
-    }
-
-    if (nprom == R_NilValue) {
-        name = eval (name, cenv);
-        if (TYPEOF(name) == STRSXP && LENGTH(name) == 1)
-            name = install (CHAR(STRING_ELT(name,0)));
-    }
-
-    if (TYPEOF(name) != SYMSXP)
-        error ("'name' argument must be a symbol or single character string");
 
     /* Get the 'value' argument of the quoted_assign function.  It is 
        evaluated, except that there is a check for it being a quoted 
@@ -424,12 +393,19 @@ SEXP quoted_assign (SEXP env, SEXP cenv, SEXP evalenv_missing,
     /* Create and assign the promise. */
 
     SEXP prom;
-    PROTECT (prom = allocSExp (PROMSXP));
 
+    PROTECT (prom = allocSExp (PROMSXP));
     SET_PRENV (prom, evalenv);
-    SET_PRCODE (prom, code);
     SET_PRVALUE (prom, value);
-    SETLEVELS (prom, evalenv == R_NilValue ? NOTQUOTED_MASK : QUOTED_MASK);
+
+    if (evalenv == R_NilValue) {
+        SET_PRCODE (prom, code);
+        SETLEVELS (prom, NOTQUOTED_MASK);
+    }
+    else {
+        SET_PRCODE (prom, value);
+        SETLEVELS (prom, QUOTED_MASK);
+    }
 
     defineVar (name, prom, assignenv);
     SET_NAMED (prom, 1);
@@ -439,43 +415,6 @@ SEXP quoted_assign (SEXP env, SEXP cenv, SEXP evalenv_missing,
     UNPROTECT(1);  /* prom */
 
     return R_NilValue;
-}
-
-
-/* C ROUTINE FOR QUOTED_EVAL<-.  Passed the environment of the R
-   quoted_assign function as 'env', the environment of the caller of
-   quoted_assign as 'cenv', and the value to be assigned as 'value'. */
-
-SEXP quoted_eval_assign (SEXP env, SEXP cenv, SEXP value)
-{
-    SEXP sym;
-
-    if (TYPEOF(env) != ENVSXP || TYPEOF(cenv) != ENVSXP)
-        error ("something wrong in quoted_eval<-");
-
-    /* Get the 'name' argument and check that it is a symbol. */
-
-    SEXP name = findVarInFrame (env, name_symbol);
-    if (name == R_UnboundValue)
-        error("something wrong in quoted_eval<-");
-
-    SEXP sym;
-    if (!arg_is_symbol(name,&sym)) {
-        error("argument of quoted_eval is not a symbol");
-    }
-
-    /* Look up the symbol in the caller of quoted_eval. */
-
-    SEXP prom = look_upwards (sym, cenv);
-    if (prom == R_NilValue) {
-        error ("argument of quoted_eval is not from "
-               "quoted_args or quoted_assign");
-    }
-
-    if (LEVELS(prom) & NOTQUOTED_MASK)
-        error ("attempt to assign to a notquoted argument");
-
-    return value;
 }
 
 
@@ -489,8 +428,7 @@ void R_init_quotedargs (DllInfo *info)
         { "C_quoted_arg",         (DL_FUNC) &quoted_arg, 2 },
         { "C_quoted_environment", (DL_FUNC) &quoted_environment, 2 },
         { "C_quoted_eval",        (DL_FUNC) &quoted_eval, 2 },
-        { "C_quoted_assign",      (DL_FUNC) &quoted_assign, 4 },
-        { "C_quoted_eval_assign", (DL_FUNC) &quoted_eval_assign, 3 },
+        { "C_quoted_assign",      (DL_FUNC) &quoted_assign, 5 },
         { NULL, NULL, 0 }
     };
 
@@ -503,5 +441,4 @@ void R_init_quotedargs (DllInfo *info)
     name_symbol      = install ("name");
     value_symbol     = install ("value");
     evalenv_symbol   = install ("eval.env");
-    assignenv_symbol = install ("assing.env");
 }

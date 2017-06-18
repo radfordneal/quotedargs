@@ -9,6 +9,7 @@
 \alias{quoted_eval}
 \alias{quoted_environment}
 \alias{quoted_assign}
+\alias{quoted_eval<-}
 \title{Facility for using quoted arguments}
 \description{
 This package assists with writing functions that automatically quote
@@ -35,18 +36,21 @@ quoted_eval (arg)
 quoted_environment (arg)
 notquoted (x)
 
-quoted_assign (name, expr, eval.env = parent.frame(),
-                           assign.env = parent.frame())
+quoted_assign (name, expr, eval.env, assign.env)
+quoted_eval(name) <- expr
 }
 \arguments{
 \item{...}{names (unquoted) of function arguments that should be quoted}
 \item{arg}{the name of a quoted function argument (unquoted)}
 \item{x}{any expression.}
 
-\item{name}{the name (as a character string) of a variable to assign to}
+\item{name}{the name (as a character string or symbol) of a variable to 
+            assign to}
 \item{expr}{an expression to assign to the variable \code{name}}
-\item{eval.env}{the environment in which \code{expr} may be evaluated}
-\item{assign.env}{the environment in which to assign to \code{name}}
+\item{eval.env}{the environment in which \code{expr} may be evaluated;
+                may be missing, with defaults as described below}
+\item{assign.env}{the environment in which to assign to \code{name};
+                  may be missing, with defaults as described below}
 }
 \details{
 The \code{quoted_arg} function should be called at the start of a
@@ -80,25 +84,38 @@ that quotes that argument, the quoted argument received will be the
 argument originally passed, not a quoting of the name of the quoted
 argument.
 
-A variable can be set up so that it looks like a quoted argument by
-calling \code{quoted_assign}.  By default, the variable created (or
-changed) is in the current environment (the parent environment of
-\code{quoted_assign}), but this can be changed with the
-\code{assign.env} argument.  The \code{expr} argument gives the
-expression analogous to an actual argument; if it has the form
-\code{notquoted(x)} or is itself a quoted argument, it is handled the
-same way as \code{quoted_arg} handles such an argument.  The
-environment \code{eval.env} is stored with the assigned expression (in
-a ``promise''), and will be used when evaluating this expression if
-\code{quoted_eval} is called for the assigned variable.  It defaults
-to the current environment (the parent of \code{quoted_assign}),
-except that if \code{expr} is itself a quoted argument, the default is
-\code{quoted_environment(expr)}.  Finally, if \code{eval.env} is
-\code{NULL} or \code{expr} is a call of \code{notquoted} with one
+A variable can be set up so that it looks like a quoted argument 
+using \code{quoted_assign}.  
+
+The name of the variable to set is specified by the \code{name}
+argument of \code{quoted_assign}, which must evaluate to a single
+character string or a symbol.  The environment in which this variable
+is assigned is specified by the \code{assign.env} argument.  If this
+is omitted, it defaults to the current environment, unless \code{name}
+is a quoted argument, in which case \code{assign.env} defaults to
+\code{quoted_environment(name)}. (It is an error if this is
+\code{NULL}.)
+
+The \code{expr} argument to \code{quoted_assign} gives an expression
+analogous to an actual argument, which is stored in the variable
+specified by \code{name}.  The environment \code{eval.env} is stored
+with the assigned expression (in a ``promise''), and will be used when
+evaluating this expression if \code{quoted_eval} is called for the
+assigned variable.  If \code{eval.env} is missing, it defaults to the
+current environment, unless \code{expr} is itself a quoted argument,
+in which case the default is \code{quoted_environment(expr)}.
+
+Finally, if the \code{eval.env} argument of \code{quoted_assign} is
+\code{NULL}, or \code{expr} is a call of \code{notquoted} with one
 argument, \code{expr} is immediately evaluated in the current
-environment, and what is stored in the variable \code{name} will look
-like a quoted argument in which the actual argument used
-\code{notquoted}.
+environment, and what is stored in \code{name} will look like a quoted
+argument in which the actual argument used \code{notquoted}.
+
+The expression \code{quoted_eval(name)<-expr} is equivalent to
+\code{quoted_assign(name,expr,NULL)}, except that \code{name} must be
+a quoted argument in which the actual argument was not a call of
+\code{notquoted} (or a variable with these characteristics set up
+with \code{quoted_assign}).
 }
 \value{
     \code{quoted_eval} and \code{quoted_environment} return values
@@ -162,7 +179,7 @@ set.seed(1)
 prsim (rexp(10,0.1), rnorm(10,1), 1000)
 
 
-# Creating a variable looking that behaves like a quoted argument.
+# Creating a variable that behaves like a quoted argument.
 
 quoted_assign("x",runif(1))
 
@@ -186,7 +203,7 @@ qfun2 <- function (y) {
 qfun2(1+2)
 
 
-# Example of using quoted_arg and quoted_eval to avoid copying
+# Examples of using quoted_arg and quoted_eval to avoid copying
 # of a large object.
 
 sum_first_last1 <- function (v) {
@@ -207,4 +224,18 @@ f <- function (sumfl) {
 
 f(sum_first_last1)   # x[2] <- 0L first copies x (in current R implementations)
 f(sum_first_last2)   # x[2] <- 0L does not result in x being copied
+
+zero_first_last <- function (v) {
+    quoted_arg(v)
+    quoted_eval(v)[1] <- 0
+    quoted_eval(v)[length(quoted_eval(v)] <- 0
+    NULL
+}
+
+v <- rep(2,10000)
+zero_first_last(v)   # does not result in v being copied
+
+cat (v[1:3], "...", v[9998:10000], "\n")
+
+v[2] <- 2            # does not result in v being copied
 }

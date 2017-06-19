@@ -386,8 +386,8 @@ SEXP quoted_assign (SEXP env, SEXP cenv, SEXP name,
     }
 
     if (vprom == R_NilValue) {
-        value = eval (value, cenv);
         code = value;
+        value = eval (value, cenv);
     }
 
     /* Create and assign the promise. */

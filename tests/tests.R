@@ -8,8 +8,8 @@
 library(quotedargs)
 
 
-# Create a quoted argument with quoted_assign and see that its value,
-# quoted_environemnt, and quoted_eval are correct.
+# Create quoted 'arguments' with quoted_assign and see that their value,
+# quoted_environment, and quoted_eval are correct.
 
 e1 <- new.env()
 e2 <- new.env()
@@ -24,6 +24,22 @@ with (e2, {
     stopifnot (identical (quoted_environment(Q), e1))
     stopifnot (identical (quoted_eval(Q), 1001))
 })
+
+h <- function () {
+
+    # Do in a function because 'substitute' is funny in global environment.
+
+    x <- quote(fred)
+
+    quoted_assign(x,22+33,NULL)
+
+    stopifnot (identical (fred, 55))
+    stopifnot (identical (quoted_environment(fred), NULL))
+    stopifnot (identical (quoted_eval(fred), 55))
+    stopifnot (identical (substitute(fred), quote(22+33)))
+}
+
+h()
 
 
 # Have g quote some arguments, then pass them on to f, which may also
@@ -107,4 +123,3 @@ G <- function (a,b) {
 }
 
 G(,rrr)
-

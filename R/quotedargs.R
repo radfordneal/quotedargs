@@ -5,8 +5,8 @@
 
 # QUOTED_... R FUNCTIONS.  These just call a C function that does the
 # work, passing environments that will be needed to get and manipulate
-# arguments.  Note that directly passing an argument to .Call would
-# result in its being evaluated, which we don't want.
+# arguments.  Note that directly passing an argument to .Call results
+# in its being evaluated, which we sometimes don't want.
 
 quoted_arg <- function (...)
     .Call (C_quoted_arg, environment(), parent.frame(), 
@@ -29,8 +29,7 @@ quoted_assign <- function (name, value, eval.env, assign.env = parent.frame()) {
 
 
 # NOTQUOTED FUNCTION.  Calls of notquoted are noticed by quoted_arg
-# and quoted_assign, and may also be actually evaluated, in which
-# case, notquoted should just return its argument (which will be
-# evaluated).
+# and may also be actually evaluated, in which case, notquoted should
+# just return its argument (which will be evaluated).
 
 notquoted <- function (x) x

@@ -234,7 +234,7 @@ SEXP quoted_arg (SEXP env, SEXP cenv)
             /* If the argument is being quoted, set the value in its promise
                to the expression, making it look like it's been forced. */
 
-            SET_PRVALUE (prom, PRCODE(prom));
+            SET_PRVALUE (prom, expr_nbc);
             SET_NAMED (PRVALUE(prom), 2);
 
             SETLEVELS (prom, LEVELS(prom) | QUOTED_MASK);
@@ -375,7 +375,7 @@ SEXP quoted_assign (SEXP env, SEXP cenv, SEXP name,
     SEXP vprom = R_NilValue;
     SEXP code;
 
-    if (arg_is_symbol (name, &sym)) {
+    if (arg_is_symbol (value, &sym)) {
         vprom = look_upwards (sym, cenv);
         if (vprom != R_NilValue) {
             value = PRVALUE(vprom);

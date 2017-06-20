@@ -116,17 +116,27 @@ static int notquoted_call (SEXP expr)
 
 
 /* CHECK IF ARGUMENT IS A QUOTED OR NOTQUOTED ARGUMENT.  Looks in the
-   given environment for the argument's promise to figure this out.
-   Returns R_NilValue if not a quoted argument, and otherwise the old
-   promise. */
+   given environment, and if necessary its enclosing environments, for
+   the argument's promise in order to figure this out.  Returns
+   R_NilValue if not a quoted argument; otherwise the old promise. */
 
 static SEXP look_upwards (SEXP expr, SEXP penv)
 {
     if (TYPEOF(expr) != SYMSXP)
         return R_NilValue;
 
-    SEXP old_prom = findVarInFrame (penv, expr);
-    if (old_prom == R_UnboundValue || TYPEOF(old_prom) != PROMSXP 
+    SEXP old_prom;
+
+    for (;;) {
+        if (penv == R_EmptyEnv)
+            return R_NilValue;
+        old_prom = findVarInFrame (penv, expr);
+        if (old_prom != R_UnboundValue)
+            break;
+        penv = ENCLOS(penv);
+    }
+
+    if (TYPEOF(old_prom) != PROMSXP 
           || (LEVELS(old_prom) & (QUOTED_MASK | NOTQUOTED_MASK)) == 0)
         return R_NilValue;
 

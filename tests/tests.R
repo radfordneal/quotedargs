@@ -123,3 +123,21 @@ G <- function (a,b) {
 }
 
 G(,rrr)
+
+
+# Check that searching for already quoted argument can go to enclosing
+# function.
+
+H <- function (x) {
+    quoted_arg(x)
+    f <- function () {
+        stopifnot (identical (quoted_environment(x), e))
+        stopifnot (identical (quoted_eval(x), "Hi Fred"))
+        quoted_assign("z",x,assign.env=parent.env(environment()))
+    }
+    f()
+    stopifnot (identical (quoted_eval(z), "Hi Fred"))
+}
+
+local ({ k <- "Fred"; e <<- environment(); H(paste("Hi",k)) })
+

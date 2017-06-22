@@ -9,21 +9,17 @@
 # in its being evaluated, which we sometimes don't want.
 
 quoted_arg <- function (...)
-    .Call (C_quoted_arg, environment(), parent.frame(), 
-           PACKAGE="quotedargs")
+    .Call (C_quoted_arg, environment(), parent.frame())
 
 quoted_environment <- function (arg)
-    .Call (C_quoted_environment, environment(), parent.frame(), 
-           PACKAGE="quotedargs")
+    .Call (C_quoted_environment, environment(), parent.frame())
 
 quoted_eval <- function (arg)
-    .Call (C_quoted_eval, environment(), parent.frame(), 
-           PACKAGE="quotedargs")
+    .Call (C_quoted_eval, environment(), parent.frame())
 
 quoted_assign <- function (name, value, eval.env, assign.env = parent.frame()) {
     .Call (C_quoted_assign, environment(), parent.frame(), 
-           name, missing(eval.env), assign.env,
-           PACKAGE="quotedargs")
+           name, missing(eval.env), assign.env)
     invisible()
 }
 

@@ -57,9 +57,10 @@ function that uses quoted arguments, with arguments that are the
 (unquoted) names of the arguments that should be quoted. After the
 call of \code{quoted_arg}, simple references to these arguments will
 give the expressions passed as arguments, rather than the values of
-these expressions. 
+these expressions. Currently, \code{...}, \code{..1}, \code{..2}, etc.
+are not allowed as arguments of \code{quoted_arg}.
 
-However, the caller of the function can disable this quoting by
+The caller of a function can disable any quoting with \code{quoted_arg} by
 passing \code{notquoted(x)} instead of \code{x}, in which case
 \code{x} will be evaluated when \code{quoted_arg} is called, and
 references to \code{x} will deliver this value, not the expression.
@@ -215,4 +216,47 @@ f <- function (sumfl) {
 
 f(sum_first_last1)  # x[2] <- 0L first copies x (in current R implementations)
 f(sum_first_last2)  # x[2] <- 0L does not result in x being copied
+
+
+# Example of using quotedargs to build functions that take as
+# arguments expressions that may reference columns of a data
+# frame and variables accessible in the caller's environment.
+# The data frame columns take precedence, except that the data
+# frame is skipped for expressions enclosed in O(...).
+
+dfeval <- function (df, expr) {    # Find value of expression
+    quoted_arg(expr)
+    env <- new.env (parent = quoted_environment(expr), hash=FALSE)
+    env$O <- function (z) { quoted_arg(z); eval(z,parent.env(environment())) }
+    environment(env$O) <- env
+    eval (expr, df, env)
+}
+
+dfchange <- function (df, expr) {  # Return data frame changed by assignments
+    quoted_arg(expr)
+    env <- new.env (parent = quoted_environment(expr), hash=FALSE)
+    env$O <- function (z) { quoted_arg(z); eval(z,parent.env(environment())) }
+    environment(env$O) <- env
+    dfenv <- as.environment(df)
+    parent.env(dfenv) <- env
+    eval (expr, dfenv)
+    as.data.frame (as.list (dfenv))
+}
+
+dfchange_var <- function (df, expr) {  # Actually change df variable passed
+    quoted_arg(df,expr)
+    newdf <- dfchange (quoted_eval(df), expr)
+    assign (as.character(df), newdf, quoted_environment(df))
+}
+
+tstdf <- as.data.frame (list (x = 1:4, y = c("a","b","c","d")))
+
+y <- 100
+dfeval (tstdf, paste0(y,x))
+dfeval (tstdf, x * O(y))
+
+dfchange (tstdf, { z <- 10*x; x <- x + O(y) })
+
+dfchange_var (tstdf, x <- 1000+x)
+tstdf
 }

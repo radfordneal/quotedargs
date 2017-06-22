@@ -173,12 +173,67 @@ a
 [1] 100001
 > 
 > 
+> # Example of using quotedargs to build functions that take as
+> # arguments expressions that may reference columns of a data
+> # frame and variables accessible in the caller's environment.
+> # The data frame columns take precedence, except that the data
+> # frame is skipped for expressions enclosed in O(...).
+> 
+> dfeval <- function (df, expr) {    # Find value of expression
++     quoted_arg(expr)
++     env <- new.env (parent = quoted_environment(expr), hash=FALSE)
++     env$O <- function (z) { quoted_arg(z); eval(z,parent.env(environment())) }
++     environment(env$O) <- env
++     eval (expr, df, env)
++ }
+> 
+> dfchange <- function (df, expr) {  # Return data frame changed by assignments
++     quoted_arg(expr)
++     env <- new.env (parent = quoted_environment(expr), hash=FALSE)
++     env$O <- function (z) { quoted_arg(z); eval(z,parent.env(environment())) }
++     environment(env$O) <- env
++     dfenv <- as.environment(df)
++     parent.env(dfenv) <- env
++     eval (expr, dfenv)
++     as.data.frame (as.list (dfenv))
++ }
+> 
+> dfchange_var <- function (df, expr) {  # Actually change df variable passed
++     quoted_arg(df,expr)
++     newdf <- dfchange (quoted_eval(df), expr)
++     assign (as.character(df), newdf, quoted_environment(df))
++ }
+> 
+> tstdf <- as.data.frame (list (x = 1:4, y = c("a","b","c","d")))
+> 
+> y <- 100
+> dfeval (tstdf, paste0(y,x))
+[1] "a1" "b2" "c3" "d4"
+> dfeval (tstdf, x * O(y))
+[1] 100 200 300 400
+> 
+> dfchange (tstdf, { z <- 10*x; x <- x + O(y) })
+   z y   x
+1 10 a 101
+2 20 b 102
+3 30 c 103
+4 40 d 104
+> 
+> dfchange_var (tstdf, x <- 1000+x)
+> tstdf
+  y    x
+1 a 1001
+2 b 1002
+3 c 1003
+4 d 1004
+> 
+> 
 > 
 > ### * <FOOTER>
 > ###
 > options(digits = 7L)
 > base::cat("Time elapsed: ", proc.time() - base::get("ptime", pos = 'CheckExEnv'),"\n")
-Time elapsed:  0.067 0.004 0.071 0 0 
+Time elapsed:  0.068 0.004 0.071 0 0 
 > grDevices::dev.off()
 null device 
           1 

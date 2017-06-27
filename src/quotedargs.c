@@ -156,10 +156,8 @@ SEXP quoted_arg (SEXP env, SEXP cenv)
     /* Get the pairlist of arguments from ... in the quoted_arg function. */
 
     SEXP dots = findVarInFrame (env, dotdotdot_symbol);
-    if (dots == R_NilValue)
+    if (dots == R_NilValue || dots == R_MissingArg)
         return R_NilValue;
-    if (dots == R_MissingArg)
-        error("... is not allowed for quoted_arg");
     if (TYPEOF(dots) != DOTSXP)
         error("something wrong in quoted_arg");
 

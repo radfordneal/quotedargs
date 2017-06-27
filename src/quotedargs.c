@@ -158,6 +158,8 @@ SEXP quoted_arg (SEXP env, SEXP cenv)
     SEXP dots = findVarInFrame (env, dotdotdot_symbol);
     if (dots == R_NilValue)
         return R_NilValue;
+    if (dots == R_MissingArg)
+        error("... is not allowed for quoted_arg");
     if (TYPEOF(dots) != DOTSXP)
         error("something wrong in quoted_arg");
 
@@ -167,6 +169,9 @@ SEXP quoted_arg (SEXP env, SEXP cenv)
 
         SEXP arg = CAR(dots);
         SEXP sym;
+
+        if (TYPEOF(arg) == PROMSXP && TYPEOF(PRCODE(arg)) == PROMSXP)
+            error("... is not allowed for quoted_arg");
 
         /* Check that the argument is a symbol (or bytecode for a symbol). */
 

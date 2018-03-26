@@ -1,6 +1,6 @@
 /* Package quotedargs - A way of writing functions that quote their arguments.
 
-   Copyright Radford M. Neal, 2017.  Distributed under GPL-2 or GPL-3. */
+   Copyright Radford M. Neal, 2017, 2018.  Distributed under GPL-2 or GPL-3. */
 
 /* C functions.  These are called from R functions that pass the
    environments that they need access to (in particular to obtain
@@ -49,6 +49,19 @@
    quoted or notquoted argument (based on LEVELS in its promise), and
    if so, simply copy the information from that promise.  
 */
+
+
+/* DEFINITIONS FOR REFCNT COMPATIBILITY.  These definitions are for
+   compatibility with both R Core versions using the REFCNT scheme,
+   and other/older versions of R. */
+
+#ifndef NAMEDMAX
+#define NAMEDMAX 2
+#endif
+
+#ifndef MARK_NOT_MUTABLE
+#define MARK_NOT_MUTABLE(x) SET_NAMED(x,NAMEDMAX)
+#endif
 
 
 /* BITS IN LEVELS FOR A PROMISE.  These indicate that the promise is
@@ -156,20 +169,19 @@ SEXP quoted_arg (SEXP env, SEXP cenv)
     /* Get the pairlist of arguments from ... in the quoted_arg function. */
 
     SEXP dots = findVarInFrame (env, dotdotdot_symbol);
-    if (dots == R_NilValue || dots == R_MissingArg)
+    if (dots == R_NilValue)
         return R_NilValue;
     if (TYPEOF(dots) != DOTSXP)
         error("something wrong in quoted_arg");
 
     /* Look at each element of ... */
 
+    PROTECT(dots);  /* just in case it's somehow deleted from env */
+
     for ( ; dots != R_NilValue; dots = CDR(dots)) {
 
         SEXP arg = CAR(dots);
         SEXP sym;
-
-        if (TYPEOF(arg) == PROMSXP && TYPEOF(PRCODE(arg)) == PROMSXP)
-            error("... is not allowed for quoted_arg");
 
         /* Check that the argument is a symbol (or bytecode for a symbol). */
 
@@ -201,7 +213,7 @@ SEXP quoted_arg (SEXP env, SEXP cenv)
             SET_PRENV (prom, R_EmptyEnv);
             defineVar (sym, prom, cenv);
             SET_NAMED (prom, 1);
-            SET_NAMED (expr, 2);
+            MARK_NOT_MUTABLE (expr);
         }
 
         else {
@@ -248,13 +260,15 @@ SEXP quoted_arg (SEXP env, SEXP cenv)
                to the expression, making it look like it's been forced. */
 
             SET_PRVALUE (prom, expr_nbc);
-            SET_NAMED (PRVALUE(prom), 2);
+            MARK_NOT_MUTABLE(PRVALUE(prom));
 
             SETLEVELS (prom, LEVELS(prom) | QUOTED_MASK);
         }
 
         UNPROTECT(1);  /* prom */
     }
+
+    UNPROTECT(1);  /* dots */
 
     return R_NilValue;
 }
@@ -407,6 +421,8 @@ SEXP quoted_assign (SEXP env, SEXP cenv, SEXP name,
 
     SEXP prom;
 
+    PROTECT (code);
+    PROTECT (value);
     PROTECT (prom = allocSExp (PROMSXP));
     SET_PRENV (prom, evalenv);
     SET_PRVALUE (prom, value);
@@ -422,10 +438,10 @@ SEXP quoted_assign (SEXP env, SEXP cenv, SEXP name,
 
     defineVar (name, prom, assignenv);
     SET_NAMED (prom, 1);
-    SET_NAMED (PRCODE(prom), 2);
-    SET_NAMED (PRVALUE(prom), 2);
+    MARK_NOT_MUTABLE (PRCODE(prom));
+    MARK_NOT_MUTABLE (PRVALUE(prom));
 
-    UNPROTECT(1);  /* prom */
+    UNPROTECT(3);  /* code, value, prom */
 
     return R_NilValue;
 }

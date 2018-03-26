@@ -1,3 +1,8 @@
+Version 0.1.1, 2018-01-08:
+
+   Small changes for compatibility with new R Core REFCNT scheme,
+   and for more caution with PROTECT.
+
 Version 0.1.0, 2017-06-18:
 
    First version.

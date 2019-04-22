@@ -402,6 +402,8 @@ SEXP quoted_assign (SEXP env, SEXP cenv, SEXP name,
     if (value == R_UnboundValue)
         error("something wrong in quoted_assign");
 
+    PROTECT(value);
+
     SEXP vprom = R_NilValue;
     SEXP code;
 
@@ -409,6 +411,8 @@ SEXP quoted_assign (SEXP env, SEXP cenv, SEXP name,
         vprom = look_upwards (sym, cenv);
         if (vprom != R_NilValue) {
             value = PRVALUE(vprom);
+            UNPROTECT(1);  /* old value */
+            PROTECT(value);
             code = PRCODE(vprom);
             if (missing_evalenv) 
                 evalenv = PRENV(vprom);
@@ -418,14 +422,16 @@ SEXP quoted_assign (SEXP env, SEXP cenv, SEXP name,
     if (vprom == R_NilValue) {
         code = value;
         value = eval (value, cenv);
+        UNPROTECT(1);  /* old value */
+        PROTECT(value);
     }
+
+    PROTECT (code);
 
     /* Create and assign the promise. */
 
     SEXP prom;
 
-    PROTECT (code);
-    PROTECT (value);
     PROTECT (prom = allocSExp (PROMSXP));
     SET_PRENV (prom, evalenv);
     SET_PRVALUE (prom, value);
